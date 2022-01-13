@@ -188,7 +188,7 @@ class Instaloader:
        The associated :class:`InstaloaderContext` with low-level communication functions and logging.
     """
 
-    def __init__(self,
+    def __init__(self,logging,
                  sleep: bool = True,
                  quiet: bool = False,
                  user_agent: Optional[str] = None,
@@ -212,6 +212,8 @@ class Instaloader:
                  fatal_status_codes: Optional[List[int]] = None,
                  iphone_support: bool = True,
                  title_pattern: Optional[str] = None):
+
+        self.logging = logging
 
         self.context = InstaloaderContext(sleep, quiet, user_agent, max_connection_attempts,
                                           request_timeout, rate_controller, fatal_status_codes,
@@ -598,7 +600,7 @@ class Instaloader:
         :raises ConnectionException: If connection to Instagram failed.
         :raises TwoFactorAuthRequiredException: First step of 2FA login done, now call
            :meth:`Instaloader.two_factor_login`."""
-        self.context.login(user, passwd)
+        self.context.login(user, passwd, self.logging)
 
     def two_factor_login(self, two_factor_code) -> None:
         """Second step of login if 2FA is enabled.

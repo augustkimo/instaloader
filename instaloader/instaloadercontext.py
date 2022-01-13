@@ -191,7 +191,8 @@ class InstaloaderContext:
         data = self.graphql_query("d6f4427fbe92d846298cf93df0b937d3", {})
         return data["data"]["user"]["username"] if data["data"]["user"] is not None else None
 
-    def login(self, user, passwd):
+    def login(self, user, passwd, logging):
+        logging.warning("Starting login")
         """Not meant to be used directly, use :meth:`Instaloader.login`.
 
         :raises InvalidArgumentException: If the provided username does not exist.
@@ -210,7 +211,9 @@ class InstaloaderContext:
         session.headers.update(self._default_http_header())
         # Override default timeout behavior.
         # Need to silence mypy bug for this. See: https://github.com/python/mypy/issues/2427
+        logging.warning("req1 - start")
         session.request = partial(session.request, timeout=self.request_timeout) # type: ignore
+        logging.warning("req2 - complete")
         csrf_json = self.get_json('accounts/login/', {}, session=session)
         csrf_token = csrf_json['config']['csrf_token']
         session.headers.update({'X-CSRFToken': csrf_token})
@@ -219,6 +222,7 @@ class InstaloaderContext:
         # Workaround credits to pgrimaud.
         # See: https://github.com/pgrimaud/instagram-user-feed/commit/96ad4cf54d1ad331b337f325c73e664999a6d066
         enc_password = '#PWD_INSTAGRAM_BROWSER:0:{}:{}'.format(int(datetime.now().timestamp()), passwd)
+        logging.warning("req2 - start")
         login = session.post('https://www.instagram.com/accounts/login/ajax/',
                              data={'enc_password': enc_password, 'username': user}, allow_redirects=True)
         try:
@@ -227,7 +231,9 @@ class InstaloaderContext:
             raise ConnectionException(
                 "Login error: JSON decode fail, {} - {}.".format(login.status_code, login.reason)
             ) from err
+        logging.warning("req2 - complete")
         if resp_json.get('two_factor_required'):
+            logging.warning("2FA required!")
             two_factor_session = copy_session(session, self.request_timeout)
             two_factor_session.headers.update({'X-CSRFToken': csrf_token})
             two_factor_session.cookies.update({'csrftoken': csrf_token})
@@ -236,22 +242,26 @@ class InstaloaderContext:
                                             resp_json['two_factor_info']['two_factor_identifier'])
             raise TwoFactorAuthRequiredException("Login error: two-factor authentication required.")
         if resp_json.get('checkpoint_url'):
+            logging.warning("error test #1")
             raise ConnectionException("Login: Checkpoint required. Point your browser to "
                                       "https://www.instagram.com{} - "
                                       "follow the instructions, then retry.".format(resp_json.get('checkpoint_url')))
         if resp_json['status'] != 'ok':
+            logging.warning("error test #2")
             if 'message' in resp_json:
                 raise ConnectionException("Login error: \"{}\" status, message \"{}\".".format(resp_json['status'],
                                                                                                resp_json['message']))
             else:
                 raise ConnectionException("Login error: \"{}\" status.".format(resp_json['status']))
         if 'authenticated' not in resp_json:
+            logging.warning("error test #3")
             # Issue #472
             if 'message' in resp_json:
                 raise ConnectionException("Login error: Unexpected response, \"{}\".".format(resp_json['message']))
             else:
                 raise ConnectionException("Login error: Unexpected response, this might indicate a blocked IP.")
         if not resp_json['authenticated']:
+            logging.warning("error test #4")
             if resp_json['user']:
                 # '{"authenticated": false, "user": true, "status": "ok"}'
                 raise BadCredentialsException('Login error: Wrong password.')
@@ -262,6 +272,7 @@ class InstaloaderContext:
                 # username is invalid.
                 raise InvalidArgumentException('Login error: User {} does not exist.'.format(user))
         # '{"authenticated": true, "user": true, "userId": ..., "oneTapPrompt": false, "status": "ok"}'
+        logging.warning("login went ok")
         session.headers.update({'X-CSRFToken': login.cookies['csrftoken']})
         self._session = session
         self.username = user
