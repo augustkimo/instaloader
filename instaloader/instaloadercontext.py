@@ -213,12 +213,16 @@ class InstaloaderContext:
         # Need to silence mypy bug for this. See: https://github.com/python/mypy/issues/2427
         logging.warning("req1 - start")
         session.request = partial(session.request, timeout=self.request_timeout) # type: ignore
-        logging.warning("req2 - complete")
+        logging.warning("req1 - complete")
         csrf_json = self.get_json('accounts/login/', {}, session=session)
+        logging.warning("debug101")
         csrf_token = csrf_json['config']['csrf_token']
+        logging.warning("debug102")
         session.headers.update({'X-CSRFToken': csrf_token})
+        logging.warning("debug103")
         # Not using self.get_json() here, because we need to access csrftoken cookie
         self.do_sleep()
+        logging.warning("debug104")
         # Workaround credits to pgrimaud.
         # See: https://github.com/pgrimaud/instagram-user-feed/commit/96ad4cf54d1ad331b337f325c73e664999a6d066
         enc_password = '#PWD_INSTAGRAM_BROWSER:0:{}:{}'.format(int(datetime.now().timestamp()), passwd)
@@ -232,7 +236,10 @@ class InstaloaderContext:
                 "Login error: JSON decode fail, {} - {}.".format(login.status_code, login.reason)
             ) from err
         logging.warning("req2 - complete")
-        if resp_json.get('two_factor_required'):
+        logging.warning(resp_json)
+        tFATest = resp_json.get('two_factor_required')
+        logging.warning(tFATest)
+        if tFATest:
             logging.warning("2FA required!")
             two_factor_session = copy_session(session, self.request_timeout)
             two_factor_session.headers.update({'X-CSRFToken': csrf_token})
@@ -276,6 +283,7 @@ class InstaloaderContext:
         session.headers.update({'X-CSRFToken': login.cookies['csrftoken']})
         self._session = session
         self.username = user
+        logging.warning("debug 120")
 
     def two_factor_login(self, two_factor_code):
         """Second step of login if 2FA is enabled.
